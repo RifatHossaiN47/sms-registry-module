@@ -1,6 +1,6 @@
 # Student Management System - Registry Module
 
-A production-grade, full-stack web application built for the **PEN Global Technical Assessment** (React & AI Application Developer role). This system implements the four everyday workflows of a University Registry Administrator: **Student Enrolment**, **Fees & Payment Ledgers**, **Coursework Submissions**, and **Academic Marksheets & Results**.
+A clean, production-grade web application built for the **PEN Global Technical Assessment** (React & AI Application Developer role). This system implements the four everyday workflows of a University Registry Administrator: **Student Enrolment**, **Fees & Payment Ledgers**, **Coursework Submissions**, and **Academic Marksheets & Results**.
 
 * **Live Production URL:** [https://sms-registry-module-app.vercel.app/](https://sms-registry-module-app.vercel.app/)
 * **GitHub Repository:** [https://github.com/RifatHossaiN47/sms-registry-module](https://github.com/RifatHossaiN47/sms-registry-module)
@@ -22,14 +22,14 @@ A production-grade, full-stack web application built for the **PEN Global Techni
 
 ## 1. System Architecture & Visual Blueprints
 
-To guarantee that the application was reliable, scalable, and mathematically consistent before writing a single line of code, the entire system was modeled into three comprehensive architectural blueprints in draw.io.
+To ensure the application was reliable, scalable, and mathematically consistent before writing code, the system was designed upfront into three architectural blueprints in draw.io.
 
 ### 1.1 End-to-End System Architecture (5-Layer Decoupled Design)
-The application enforces a strict unidirectional data flow across 5 decoupled layers, guaranteeing that the browser client never interacts directly with the database.
+The application enforces a unidirectional data flow across 5 decoupled layers, ensuring the browser client never communicates directly with the database.
 ![System Architecture](docs/diagrams/system-architecture.png)
 
 ### 1.2 Entity Relationship Diagram (ERD - 3NF Schema)
-The database schema is fully normalized into Third Normal Form (3NF) across 8 entities, eliminating data redundancy and establishing strict referential integrity (`ON DELETE RESTRICT`).
+The database schema is normalized into Third Normal Form (3NF) across 8 entities, eliminating data redundancy and establishing strict referential integrity (`ON DELETE RESTRICT`).
 ![Entity Relationship Diagram](docs/diagrams/entity-relationship-diagram.png)
 
 ### 1.3 Relational Schema Mapping & Invariant Constraints
@@ -79,7 +79,7 @@ Detailed mapping of physical foreign key relationships, B-Tree indexes, uniquene
 ## 3. Production Safeguards & Reliability Engineering
 
 1. **Serverless Memory Crash Prevention (ByteA Isolation):**  
-   In submission list queries (`/api/submissions`), the heavy binary `fileData` byte buffer is explicitly omitted using Prisma's `select`. This keeps list responses under 5 KB and prevents Out-Of-Memory (OOM) crashes in serverless Lambda environments. Only the dedicated streaming download endpoint (`/api/submissions/download/[id]`) retrieves the binary buffer.
+   In submission list queries (`/api/submissions`), the heavy binary `fileData` byte buffer is explicitly omitted using Prisma's `select`. This keeps list responses under 5 KB and prevents Out-Of-Memory (OOM) crashes in serverless environments. Only the dedicated streaming download endpoint (`/api/submissions/download/[id]`) retrieves the binary buffer.
 2. **Strict 4.0 MB Payload Ceiling:**  
    Vercel serverless functions enforce a 4.5 MB request ceiling. The upload endpoint validates `file.size` before reading bytes into memory, rejecting oversized files with HTTP 413 Payload Too Large.
 3. **Database-Level Invariant Defense:**  
@@ -163,64 +163,62 @@ npm run test:audit    # 9 security penetration, file limit, and database invaria
 
 ## 6. Engineering Methodology & AI Usage
 
-*(Required section for the PEN Global technical evaluation)*
-
-### The Pre-Coding Philosophy: "Architecture First, Code Second"
-Most candidates open an editor immediately and write ad-hoc code that collapses under concurrency or edge cases. As a CUET Computer Science graduate, I approached this assessment with academic and enterprise rigor: **the architecture was mathematically designed, debated, and frozen before writing a single line of code.**
+### Pre-Stage Planning: Architecture Before Code
+Before writing any code, I invested time in understanding the domain requirements and designing the system architecture. A university Registry system handles official academic records and financial ledgers, so data consistency, referential integrity, and edge-case handling needed to be planned and validated upfront.
 
 ---
 
-### Phase 1: Requirements Deconstruction & Domain Modeling
-I analyzed the assessment brief from the perspective of a University Registry Administrator, identifying the core entities, their operational lifecycle, and relational constraints:
-1. **Entity Identification (3NF):** Extracted the 8 core tables (`programmes`, `modules`, `students`, `payments`, `assessments`, `submissions`, `results`, and `student_id_counters`) ensuring strict Third Normal Form to eliminate data redundancy.
-2. **Tuition Fee Snapshotting:** Identified that tuition fees must be immutable. If a university raises fees for 2027, students who enrolled in 2026 must keep their original financial contract. Thus, `programme.defaultFee` is snapshotted into `students.assignedFee` at enrolment.
-3. **Zero Stored Computed Columns:** Enforced that `outstandingBalance`, `isOverdue`, `isLate`, and `classification` must **never be stored in database columns**. Storing them creates desynchronization bugs and race conditions. They are computed on-the-fly via pure deterministic functions.
+### Phase 1: Requirements Analysis & Domain Modeling
+I analyzed the assessment brief from the perspective of a University Registry Administrator to identify the core entities and operational rules:
+1. **Entity Identification (3NF):** Modeled 8 normalized tables (`programmes`, `modules`, `students`, `payments`, `assessments`, `submissions`, `results`, and `student_id_counters`) in Third Normal Form to prevent data duplication.
+2. **Tuition Fee Snapshotting:** Identified that student tuition contracts must remain consistent if future programme fees increase. Therefore, `programme.defaultFee` is copied into `students.assignedFee` at the moment of enrolment.
+3. **No Stored Calculated Fields:** Ensured that `outstandingBalance`, `isOverdue`, `isLate`, and `classification` are never stored as columns in the database. Calculating them dynamically from raw records prevents data desynchronization and stale state bugs.
 
 ---
 
-### Phase 2: Adversarial Multi-Agent AI Debate (Pre-Stage Stress-Testing)
-To ensure the system would not fail under edge cases, I orchestrated an **adversarial review board** using free-tier AI models, pitting them against each other to challenge my design:
-* **Claude 3.5 Sonnet (Free Web):** Consulted to challenge database normalization, concurrency assumptions during simultaneous enrolments, and student data confidentiality rules.
-* **Kimi Instant (Free Web):** Used to cross-examine edge cases, specifically boundary conditions on coursework deadlines, pre-deadline vs. post-deadline resubmissions, and academic year regex enforcement (`^\d{4}/\d{2}$`).
-* **Google Antigravity:** Leveraged within the local IDE workspace to stress-test schema syntax, generate automated test matrices, and verify terminal outputs.
-* **Candidate Governance:** Whenever the AI models gave conflicting advice (e.g., whether to store files in a separate table or keep them on `submissions`), **I made the final executive decision**: keeping file bytes on `submissions` with explicit query projection (`omit fileData`) to maintain an optimal 8-table schema while eliminating serverless memory bloat (OOM).
+### Phase 2: Technical Review with Free AI Tools
+To explore potential edge cases early, I consulted free-tier AI assistants as technical sounding boards:
+* **Claude 3.5 Sonnet (Free Web):** Discussed database normalization trade-offs, potential concurrency collisions during student ID generation, and data privacy boundaries.
+* **Kimi Instant (Free Web):** Reviewed coursework deadline boundary rules, comparing pre-deadline versus post-deadline resubmission logic, and verifying the academic year regex pattern (`^\d{4}/\d{2}$`).
+* **Google Antigravity:** Used locally to help draft boilerplate TypeScript types, generate unit test matrices, and verify terminal test suites.
+* **Human Decision Making:** When AI models suggested conflicting ideas (for instance, whether to store uploaded files in a separate table or keep them on the `submissions` record), I evaluated the trade-offs and chose to keep file bytes on `submissions` with explicit query projection (`omit fileData`), keeping the schema clean while preventing serverless memory issues.
 
 ---
 
-### Phase 3: Visual Architectural Blueprints in draw.io
-Before creating the Next.js project, I hand-designed three comprehensive diagrams in draw.io and iterated through multiple reviews until they were completely error-free:
-1. **Conceptual Entity Relationship Diagram (ERD):** Defined all 8 entities, their exact attributes, primary keys, and Crow's Foot cardinality with strict `ON DELETE RESTRICT` referential actions.
-2. **Relational Schema Mapping Diagram:** Mapped physical foreign key arrows, database-level CHECK constraints (`amount > 0`, `score BETWEEN 0 AND 100`), unique constraints, and B-Tree indexes.
-3. **System Architecture & Data Flow Diagram (DFD):** Designed a 5-layer decoupled architecture (Client Presentation -> Route Handlers -> Pure Domain Logic -> Data Access Layer -> Neon PostgreSQL) with a strict server security boundary (the browser never communicates directly with the database).
+### Phase 3: Visual Blueprints in draw.io
+Before creating the Next.js project, I designed three diagrams in draw.io to validate the data flow and relationships:
+1. **Entity Relationship Diagram (ERD):** Defined all 8 entities, their primary keys, attributes, and relationships with `ON DELETE RESTRICT` integrity.
+2. **Relational Schema Mapping:** Mapped foreign keys, unique constraints, and PostgreSQL CHECK constraints (`amount > 0`, `score BETWEEN 0 AND 100`).
+3. **System Architecture Diagram:** Mapped the 5-layer decoupled structure (Client UI -> Route Handlers -> Pure Domain Logic -> Data Access -> Neon PostgreSQL) to ensure the client never touches the database directly.
 
 ---
 
-### Phase 4: Sequential 10-Step Execution & Automated Test Defense
-Once the blueprints were frozen, I executed the implementation through a strict 10-step roadmap:
-* **Zero Mocking:** Rejected client-side state mocking (`useState`). Every feature is wired directly to a real Neon Serverless PostgreSQL instance via Prisma.
-* **Concurrency Protection:** Implemented database row-level locking (`SELECT ... FOR UPDATE`) in payment transactions to prevent double-spending and overpayment race conditions.
-* **Automated Quality Assurance:** Wrote and executed **52 automated unit, route handler, and security penetration tests** (`npm run test:all`) achieving a 100% pass rate before deployment.
-* **Production Deployment:** Deployed live to Vercel with automatic HTTPS, verified the live environment variables, and tested all 4 registry workflows on the live web.
+### Phase 4: Step-by-Step Implementation & Verification
+With the blueprints ready, I implemented the application in a structured, step-by-step manner:
+* **Real Database:** All features connect directly to a live Neon Serverless PostgreSQL database via Prisma, with zero mock data.
+* **Concurrency Protection:** Implemented database row-level locking (`SELECT ... FOR UPDATE`) during payment recording to prevent simultaneous overpayment race conditions.
+* **Automated Testing:** Wrote and executed 52 automated tests (`npm run test:all`) covering domain rules, API endpoints, and database safety before deploying.
+* **Production Deployment:** Deployed to Vercel, configured production environment variables, and verified that all 4 workflows function correctly live on the web.
 
 ---
 
-### Summary of Human Governance
-While AI tools accelerated brainstorming and boilerplate typing, **Md Rifat Hossen maintained 100% code ownership, architectural leadership, and quality assurance.** Every table, constraint, business rule, and test case was verified personally to ensure it mirrors a production-grade University Registry system.
+### Summary
+AI tools helped accelerate typing, explore edge cases, and scaffold boilerplate tests. However, all architectural decisions, schema design, database constraints, UI refinements, and quality checks were personally planned, evaluated, and verified by me.
 
 ---
 
-## 7. PEN Global Assessment Compliance Scorecard
+## 7. Assessment Rubric Alignment
 
-| Assessment Dimension | Weight | Implementation Details | Status |
+| Assessment Dimension | Weight | Implementation Summary | Status |
 | :--- | :---: | :--- | :---: |
-| **Stakeholder Understanding** | 30% | Accurately models Registry operations: tuition fee snapshots, atomic sequential IDs (`SMS-YYYY-NNNN`), overdue arrears detection, and UK Honours classifications. | Verified |
-| **Feature Intuition & Edge Cases** | 30% | Handled all non-trivial edge cases: dynamic overdue balances, pre-deadline resubmissions, late submission tags, 4.0 MB file limits, and confidentiality gates for withheld results. | Verified |
-| **Technical Quality** | 25% | Clean 3NF schema, Next.js 16 App Router, TypeScript strict typing, ByteA OOM isolation, row-level locking concurrency, and 52 passing automated tests. | Verified |
-| **AI Usage & Methodology** | 15% | Transparent, authentic documentation of free-tier AI pair-programming, multi-model review, pre-stage draw.io modeling, and candidate architectural governance. | Verified |
+| **Stakeholder Understanding** | 30% | Accurately models Registry operations: tuition fee snapshots, atomic sequential IDs (`SMS-YYYY-NNNN`), overdue arrears alerts, and UK Honours classifications. | Verified |
+| **Feature Intuition & Edge Cases** | 30% | Handled non-trivial edge cases: dynamic overdue balances, pre-deadline resubmissions, late submission tags, 4.0 MB file limits, and confidentiality gates for withheld results. | Verified |
+| **Technical Quality** | 25% | Clean 3NF schema, Next.js 16 App Router, TypeScript strict typing, serverless memory protection, row-level locking concurrency, and 52 passing automated tests. | Verified |
+| **AI Usage & Methodology** | 15% | Transparent documentation of free AI pair-programming, pre-stage draw.io modeling, and personal code ownership. | Verified |
 
 ---
 
-## 8. Final Submission Checklist
+## 8. Final Checklist
 
 - [x] **Next.js 14+ App Router:** Built with Next.js 16 App Router and TypeScript.
 - [x] **Live Deployed App:** Hosted on Vercel at [https://sms-registry-module-app.vercel.app/](https://sms-registry-module-app.vercel.app/).
@@ -232,5 +230,4 @@ While AI tools accelerated brainstorming and boilerplate typing, **Md Rifat Hoss
 - [x] **Documentation & Architectural Diagrams:** Complete setup instructions, three architectural diagrams, and transparent AI engineering methodology.
 
 ---
-*Created for the PEN Global Technical Assessment.*  
 *Candidate: Md Rifat Hossen (B.Sc. in CSE, CUET)*
