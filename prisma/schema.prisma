@@ -1,0 +1,162 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// 3 ENUMS (FROZEN ARCHITECTURE)
+// -------------------------------------------------------------
+
+enum StudentStatus {
+  ENROLLED
+  DEFERRED
+  WITHDRAWN
+  COMPLETED
+}
+
+enum AssessmentStatus {
+  OPEN
+  CLOSED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  CASH
+}
+
+// -------------------------------------------------------------
+// 8 RELATIONAL TABLES (3NF - THIRD NORMAL FORM)
+// -------------------------------------------------------------
+
+model Programme {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique @db.VarChar(20)
+  name       String   @db.VarChar(100)
+  defaultFee Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  modules  Module[]
+  students Student[]
+
+  @@map("programmes")
+}
+
+model Module {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  credits     Int
+  programmeId String   @db.Uuid
+  programme   Programme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assessments Assessment[]
+
+  @@index([programmeId])
+  @@map("modules")
+}
+
+model Student {
+  id           String        @id @default(uuid()) @db.Uuid
+  studentId    String        @unique @db.VarChar(30)
+  fullName     String        @db.VarChar(100)
+  email        String        @unique @db.VarChar(100)
+  dateOfBirth  DateTime      @db.Date
+  academicYear String        @db.VarChar(9)
+  status       StudentStatus @default(ENROLLED)
+  programmeId  String        @db.Uuid
+  programme    Programme     @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  assignedFee  Decimal       @db.Decimal(10, 2)
+  feeDueDate   DateTime      @db.Date
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  payments    Payment[]
+  submissions Submission[]
+  results     Result[]
+
+  @@index([status, programmeId])
+  @@map("students")
+}
+
+model StudentIdCounter {
+  year       Int @id
+  lastNumber Int @default(0)
+
+  @@map("student_id_counters")
+}
+
+model Payment {
+  id              String        @id @default(uuid()) @db.Uuid
+  studentId       String        @db.Uuid
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  amount          Decimal       @db.Decimal(10, 2)
+  paymentDate     DateTime      @default(now())
+  referenceNumber String        @unique @db.VarChar(50)
+  paymentMethod   PaymentMethod
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([studentId])
+  @@map("payments")
+}
+
+model Assessment {
+  id        String           @id @default(uuid()) @db.Uuid
+  title     String           @db.VarChar(100)
+  moduleId  String           @db.Uuid
+  module    Module           @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  deadline  DateTime
+  status    AssessmentStatus @default(OPEN)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  submissions Submission[]
+  results     Result[]
+
+  @@index([moduleId])
+  @@map("assessments")
+}
+
+model Submission {
+  id           String     @id @default(uuid()) @db.Uuid
+  assessmentId String     @db.Uuid
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  studentId    String     @db.Uuid
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  fileData     Bytes      @db.ByteA
+  fileName     String     @db.VarChar(255)
+  fileMime     String     @db.VarChar(100)
+  fileSize     Int
+  version      Int        @default(1)
+  submittedAt  DateTime   @default(now())
+
+  @@unique([assessmentId, studentId])
+  @@index([studentId])
+  @@map("submissions")
+}
+
+model Result {
+  id           String     @id @default(uuid()) @db.Uuid
+  assessmentId String     @db.Uuid
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  studentId    String     @db.Uuid
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  score        Int
+  publishedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assessmentId, studentId])
+  @@index([studentId])
+  @@map("results")
+}
